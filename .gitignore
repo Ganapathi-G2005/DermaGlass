@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+venv/
+App/backend/venv/
+
+# Environment variables
+.env
+.env.local
+
+# Vite
+dist/
+dist-ssr/
+
+# PyTorch models (too large for GitHub)
+*.pth
+App/backend/models/*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
