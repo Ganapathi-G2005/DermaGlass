@@ -155,6 +155,13 @@ def run_custom_model_inference(image_bytes):
             predicted_label = re.sub(r'^\d+\s+', '', predicted_label)
         else:
             predicted_label = "Unknown"
+        
+        # --- NEW THRESHOLD LOGIC (User Request) ---
+        if confidence_score < 50.0:
+            logger.info(f"Inference: Low Confidence ({confidence_score:.2f}%) -> Returning Unclear/Normal")
+            # We return a special label that the analysis node will handle
+            return "Unclear / Normal", confidence_score
+            
         logger.info(f"Inference: {predicted_label} ({confidence_score:.2f}%)")
         return predicted_label, confidence_score
     except Exception as e:
@@ -180,8 +187,18 @@ def analysis_reporter_node(state: AgentState):
     confidence = state["confidence"]
     
     # Logic from original code for low confidence
-    if confidence < 40.0:
-        advice = "The confidence is too low to be sure. Please consult a dermatologist."
+    # Logic from original code for low confidence
+    if disease == "Unclear / Normal" or confidence < 50.0:
+        advice = (
+            "## Analysis Inconclusive\n"
+            "The image is unclear or does not strongly match any specific skin condition in my training.\n\n"
+            "**Possibilities:**\n"
+            "- It might be **normal healthy skin**.\n"
+            "- The image might be **blurry or poorly lit**.\n"
+            "- The condition might be outside my current knowledge base.\n\n"
+            "**Recommendation:**\n"
+            "Please try capturing the image again in better lighting. If you have concerns, always consult a dermatologist."
+        )
         return {"analysis_report": advice}
     
     if confidence <= 60.0:

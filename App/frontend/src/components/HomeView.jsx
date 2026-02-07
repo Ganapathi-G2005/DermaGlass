@@ -37,7 +37,7 @@ const HomeView = ({ onStartCamera, onFileSelected, history, onSelectItem }) => {
                         DermaGlass
                     </p>
                     <h1 className="text-xl font-extrabold text-white tracking-tight">
-                        Good morning, Friend
+                        Hello Friend
                     </h1>
                     <p className="text-sm text-slate-400 mt-1">
                         Let&apos;s do a quick skin check-in.
@@ -102,11 +102,10 @@ const HomeView = ({ onStartCamera, onFileSelected, history, onSelectItem }) => {
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => document.getElementById('hidden-file-input').click()}
-                        className={`w-full py-4 px-5 rounded-2xl flex items-center justify-center gap-3 text-sm font-semibold border transition-all ${
-                            isDragActive
+                        className={`w-full py-4 px-5 rounded-2xl flex items-center justify-center gap-3 text-sm font-semibold border transition-all ${isDragActive
                                 ? 'bg-white/15 border-sky-500/50 text-white'
                                 : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20'
-                        }`}
+                            }`}
                     >
                         <ImageIcon size={20} className="text-sky-400" />
                         <span>Upload a photo from gallery</span>
