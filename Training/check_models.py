@@ -1,6 +1,6 @@
 import google.generativeai as genai
 
-api_key = 'AIzaSyA8oqCHCanDLLMsAFbGmu6KbDGJNjOKjHM'
+api_key = 'your_api_key'
 
 if not api_key:
     print("Error: GEMINI_API_KEY not found in .env")
