@@ -61,15 +61,6 @@ npm run dev
 ```
 *App runs at `http://localhost:5173`*
 
-## 📸 Screenshots
-
-<!-- 
-| Diagnosis Result | Chat with Dr. Derma |
-|:---:|:---:|
-| ![Result](https://via.placeholder.com/400x800?text=Diagnosis+Screen) | ![Chat](https://via.placeholder.com/400x800?text=Chat+Interface) |
--->
-*(Screenshots coming soon)*
-
 ## 🧠 Model Details
 The model was fine-tuned on a dataset of 12,000+ dermatological images.
 - **Base Model**: EfficientNet-B0 (Pre-trained on ImageNet)
@@ -81,3 +72,4 @@ The model was fine-tuned on a dataset of 12,000+ dermatological images.
 
 ## 📄 License
 MIT License - feel free to use this for your own learning!
+
