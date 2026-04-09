@@ -115,7 +115,9 @@ const ResultCard = ({ result, imagePreview, onReset }) => {
                         <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5 font-medium">
                             AI Assessment
                         </p>
-                        <h1 className="text-lg font-bold text-white truncate leading-tight">{disease}</h1>
+                        <h1 className="text-lg font-bold text-white truncate leading-tight">
+                            {confidence > 50 ? disease.replace(/^\d+\s*/, '') : 'Analysis Complete'}
+                        </h1>
                     </div>
                 </div>
             </header>

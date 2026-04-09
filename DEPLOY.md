@@ -28,7 +28,7 @@ We use Hugging Face Spaces because it offers generous free tiers for ML apps (16
     *   Go to "Settings" tab in your Space.
     *   Scroll to "Variables and secrets".
     *   Add a **Secret**:
-        *   Name: `GEMINI_API_KEY`
+        *   Name: `OPENAI_API_KEY`
         *   Value: (Your actual API Key from `.env`)
 
 4.  **Wait for Build**:

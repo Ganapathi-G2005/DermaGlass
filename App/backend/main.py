@@ -5,7 +5,6 @@ import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
 from PIL import Image
 import io
 import json
@@ -25,7 +24,7 @@ from typing import Annotated, List, Dict, Any, TypedDict
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -43,17 +42,15 @@ app.add_middleware(
 )
 
 # Configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    # LangChain LLM wrapper
-    llm = ChatGoogleGenerativeAI(model="gemma-3-27b-it", google_api_key=GEMINI_API_KEY, temperature=0.3)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY:
+    llm = ChatOpenAI(model="gpt-5-nano", api_key=OPENAI_API_KEY, temperature=0.3)
 else:
     llm = None
 
 # --- 1. Markdown Formatting Agent ---
 def format_advice_markdown(raw: str) -> str:
-    """Post-processes Gemini output into clean, well-structured Markdown."""
+    """Post-processes LLM output into clean, well-structured Markdown."""
     if not raw or not isinstance(raw, str):
         return raw
 
@@ -232,9 +229,12 @@ def analysis_reporter_node(state: AgentState):
         response = llm.invoke(prompt)
         advice = format_advice_markdown(response.content)
         final_advice = prefix + advice
-        # We also seed the history with a system message containing this context
-        # Changed to HumanMessage because 'gemma-3-27b-it' threw "Developer instruction is not enabled"
-        system_msg = HumanMessage(content=f"SYSTEM CONTEXT: You are a dermatology assistant. The user has been diagnosed with {disease} (Confidence: {confidence:.1f}%).\n\nOriginal Analysis:\n{final_advice}")
+        system_msg = SystemMessage(
+            content=(
+                f"You are a dermatology assistant. The user has been diagnosed with {disease} "
+                f"(Confidence: {confidence:.1f}%).\n\nOriginal Analysis:\n{final_advice}"
+            )
+        )
         return {"analysis_report": final_advice, "messages": [system_msg]}
     except Exception as e:
         return {"analysis_report": f"Error generating advice: {str(e)}"}
@@ -269,8 +269,7 @@ def assistant_node(state: AgentState):
         "3. TONE: Be professional, empathetic, and concise."
     )
     
-    # We use HumanMessage because SystemMessage is rejected by the current Gemma endpoint
-    messages_for_llm = [HumanMessage(content=guardrail_prompt)] + state["messages"]
+    messages_for_llm = [SystemMessage(content=guardrail_prompt)] + state["messages"]
     
     logger.info(f"--- Assistant Node: Invoking LLM with {len(messages_for_llm)} messages ---")
     try:
@@ -318,106 +317,6 @@ workflow.add_edge("assistant", END)
 # Memory
 memory = MemorySaver()
 graph = workflow.compile(checkpointer=memory)
-
-# --- 4. API Endpoints ---
-
-class PredictionResponse(BaseModel):
-    disease: str
-    confidence: float
-    advice: str
-    thread_id: str 
-
-class ChatRequest(BaseModel):
-    disease: str
-    confidence: float
-    question: str
-
-class ChatResponse(BaseModel):
-    reply: str
-
-@app.get("/")
-def home():
-    return {"message": "DermaDetect Agentic API is running"}
-
-@app.post("/predict", response_model=PredictionResponse)
-async def predict(file: UploadFile = File(...)):
-    print(f"--- Predict Request Received: {file.filename} ---")
-    
-    # 1. Inference
-    contents = await file.read()
-    print("Running Inference...")
-    disease_name, confidence = run_custom_model_inference(contents)
-    print(f"Inference Result: {disease_name} ({confidence:.2f}%)")
-    
-    # 2. Agentic Workflow - Phase 1: Analysis
-    thread_id = "global_user_session"
-    config = {"configurable": {"thread_id": thread_id}}
-    
-    inputs = {
-        "disease": disease_name,
-        "confidence": confidence,
-        "analysis_report": "" # Force router to pick analysis
-    }
-    
-    print("Invoking Analysis Graph...")
-    try:
-        events = graph.invoke(inputs, config=config)
-        print("Graph Invocation Complete.")
-        
-        advice = events.get("analysis_report", "No advice generated.")
-        print(f"Advice Generated (Length: {len(advice)})")
-        
-        return {
-            "disease": disease_name,
-            "confidence": round(confidence, 2),
-            "advice": advice,
-            "thread_id": thread_id
-        }
-    except Exception as e:
-        print(f"Graph Error in Predict: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-             "disease": disease_name,
-             "confidence": round(confidence, 2),
-             "advice": f"Error generating advice: {str(e)}",
-             "thread_id": thread_id
-        }
-
-@app.post("/chat", response_model=ChatResponse)
-async def chat_with_ai(request: ChatRequest):
-    print(f"Chat Request: {request.question}")
-    try:
-        thread_id = "global_user_session"
-        config = {"configurable": {"thread_id": thread_id}}
-        
-        # 1. Update state with user message
-        user_msg = HumanMessage(content=request.question)
-        
-        # 2. Invoke graph. 
-        # Check current state for debugging
-        cutoff_state = graph.get_state(config)
-        print(f"Current State Check: {cutoff_state.values.keys() if cutoff_state else 'None'}")
-        
-        # If state is empty (server restart), we might want to ensure 'assistant' path is safe
-        # But our router handles missing 'disease' by going to assistant.
-        
-        events = graph.invoke({"messages": [user_msg]}, config=config)
-        print(f"Graph Events Keys: {events.keys()}")
-        
-        if "messages" in events and len(events["messages"]) > 0:
-            response_msg = events["messages"][-1]
-            print(f"AI Reply: {response_msg.content[:50]}...")
-            return ChatResponse(reply=response_msg.content)
-        else:
-            print("Graph did not return messages.")
-            return ChatResponse(reply="Error: No response from AI agent.")
-            
-    except Exception as e:
-        print(f"Chat Endpoint Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return ChatResponse(reply=f"System Error: {str(e)}")
 
 # --- 4. API Endpoints ---
 
